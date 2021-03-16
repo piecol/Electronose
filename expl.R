@@ -45,6 +45,7 @@ EN_long_tt %>%
   facet_wrap(.~measurements, scales = "free_y")
   
 mean_500 <- rollify(mean, window = 500)
+
 EN_roll =
   EN_long_tt %>% 
   group_by(measurements) %>% 
