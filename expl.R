@@ -4,21 +4,85 @@
 
 library(pacman)
 pacman::p_load(bookdown, tidyverse, janitor, here, readxl, lubridate, hms, patchwork, GGally,
-               ggthemes, qdapRegex, inspectdf, R.utils, RColorBrewer, tidytext, ggrepel,
+               ggthemes, qdapRegex, inspectdf, R.utils, RColorBrewer, tidytext, ggrepel, tibbletime,
                viridis, DT, plotly, gapminder, echarts4r, cowplot, magick, tidymodels, skimr)
 
 
 EN <- read_excel(here("./DATA/AirQualityUCI.xlsx"), .name_repair = make_clean_names)
 
-skim(EN)
+#skim(EN)
+
+EN_Clean =
+  EN %>% 
+  dplyr::mutate(date_time = as.POSIXct(paste(date, format(time, format = "%H:%M:%S")), format="%Y-%m-%d %H:%M:%S")) %>%
+  # dplyr::mutate(year = format(date, "%Y"),
+  #               month = format(date, "%m"),
+  #               day = format(date, "%d"),
+  #               time = format(time, format = "%H:%M:%S")) %>% 
+  relocate(date_time)
+
+#skim(EN_Clean)
+
+EN_long =
+  EN_Clean %>%
+  select(-date,-time) %>% 
+  pivot_longer(
+    cols = co_gt:ah,
+    names_to = c("measurements"),
+    values_to = "values") %>% 
+  filter(values > 0)
+
+EN_long_tt = as_tbl_time(EN_long,index = date_time) 
 
 
+EN_long_tt %>% 
+  collapse_by("monthly") %>%
+  group_by(date_time,measurements) %>% 
+  summarise(mean_val = values) %>% 
+  ggplot(aes(x=date_time, y=mean_val, z=factor(measurements), color=measurements)) +
+  geom_line() + 
+  xlab("") +
+  facet_wrap(.~measurements, scales = "free_y")
+  
+mean_500 <- rollify(mean, window = 500)
+EN_roll =
+  EN_long_tt %>% 
+  group_by(measurements) %>% 
+  mutate(roll_mean = mean_500(values))
+
+
+ggplot(EN_roll, aes(x=date_time, y=roll_mean, z=factor(measurements), color=measurements)) +
+  geom_line() + 
+  xlab("") +
+  facet_wrap(.~measurements, scales = "free_y")
+
+
+colnames(EN)
+
+# Most basic bubble plot
+ggplot(EN_Clean, aes(x=date, y=pt08_s2_nmhc)) +
+  geom_line( color="steelblue") + 
+  xlab("") +
+  theme(axis.text.x=element_text(angle=60, hjust=1))# +
+  ylim(0,15)
+  
+
+
+
+ggplot(EN_long, aes(x=date, y=values, z=factor(measurements), color=measurements)) +
+  geom_line() + 
+  xlab("") +
+  facet_wrap(.~measurements, scales = "free_y")
+  theme(axis.text.x=element_text(angle=60, hjust=1)) +
+  ylim(0,15)
+  
+  
 CTM_Clean =
   CTM %>% 
   mutate_at(vars(analysis_time), dmy_hms) %>% 
   mutate_at(vars(analysis_time), funs("date" = date(.))) %>% 
   relocate(date) %>% 
-  rename(grassi = "grassi_tq", proteine = "proteine_tq" ) %>%
+  #rename(grassi = "grassi_tq", proteine = "proteine_tq" ) %>%
   select(-analysis_time, -sample_comment, -cup_id, -cup_type, -product_name,
          -instrument_serial_number, -instrument_name, -product_code, -sample_type,
          -saccarosio, -ceneri, -fibra, -carboidrati, -proteine) %>%
