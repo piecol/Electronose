@@ -1,12 +1,16 @@
 #git push --set-upstream origin master
 
+# data from https://www.kaggle.com/fedesoriano/air-quality-data-set
+
 library(pacman)
 pacman::p_load(bookdown, tidyverse, janitor, here, readxl, lubridate, hms, patchwork, GGally,
                ggthemes, qdapRegex, inspectdf, R.utils, RColorBrewer, tidytext, ggrepel,
-               viridis, DT, plotly, gapminder, echarts4r, cowplot, magick, tidymodels)
+               viridis, DT, plotly, gapminder, echarts4r, cowplot, magick, tidymodels, skimr)
 
 
 EN <- read_excel(here("./DATA/AirQualityUCI.xlsx"), .name_repair = make_clean_names)
+
+skim(EN)
 
 
 CTM_Clean =
