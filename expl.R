@@ -2,10 +2,12 @@
 
 # data from https://www.kaggle.com/fedesoriano/air-quality-data-set
 
+
+
 library(pacman)
-pacman::p_load(bookdown, tidyverse, janitor, here, readxl, lubridate, hms, patchwork, GGally,
-               ggthemes, qdapRegex, inspectdf, R.utils, RColorBrewer, tidytext, ggrepel, tibbletime,
-               viridis, DT, plotly, gapminder, echarts4r, cowplot, magick, tidymodels, skimr)
+pacman::p_load(bookdown, tidyverse, janitor, here, readxl, lubridate, hms, patchwork, GGally, modeltime,
+               ggthemes, qdapRegex, inspectdf, R.utils, RColorBrewer, tidytext, ggrepel, tibbletime, timetk,
+               viridis, DT, plotly, gapminder, echarts4r, cowplot, magick, tidymodels, skimr, TSstudio)
 
 
 EN <- read_excel(here("./DATA/AirQualityUCI.xlsx"), .name_repair = make_clean_names)
@@ -32,11 +34,14 @@ EN_long =
     values_to = "values") %>% 
   filter(values > 0)
 
-EN_long_tt = as_tbl_time(EN_long,index = date_time) 
+#EN_long_tt = as_tbl_time(EN_long,index = date_time) 
 
-
-EN_long_tt %>% 
-  collapse_by("monthly") %>%
+p1 =
+EN_long %>% 
+  filter(measurements!="nmhc_gt") %>% 
+  as_tbl_time(index = date_time) %>% 
+  collapse_by("weekly") %>%
+  #as_period("10 d") %>% 
   group_by(date_time,measurements) %>% 
   summarise(mean_val = values) %>% 
   ggplot(aes(x=date_time, y=mean_val, z=factor(measurements), color=measurements)) +
@@ -48,35 +53,44 @@ mean_500 <- rollify(mean, window = 500)
 
 EN_roll =
   EN_long_tt %>% 
+  filter(measurements!="nmhc_gt") %>% 
   group_by(measurements) %>% 
   mutate(roll_mean = mean_500(values))
 
 
-ggplot(EN_roll, aes(x=date_time, y=roll_mean, z=factor(measurements), color=measurements)) +
+p2 = 
+  ggplot(EN_roll, aes(x=date_time, y=roll_mean, z=factor(measurements), color=measurements)) +
   geom_line() + 
   xlab("") +
-  facet_wrap(.~measurements, scales = "free_y")
+  facet_wrap(.~measurements, scales = "free_y", ncol =2)
 
-
+combined <- p1 + p2 & theme(legend.position = "bottom")
+combined + plot_layout(guides = "collect")
 colnames(EN)
 
-# Most basic bubble plot
-ggplot(EN_Clean, aes(x=date, y=pt08_s2_nmhc)) +
-  geom_line( color="steelblue") + 
-  xlab("") +
-  theme(axis.text.x=element_text(angle=60, hjust=1))# +
-  ylim(0,15)
-  
+
+test_EN =
+EN_long %>% 
+  filter(measurements!="nmhc_gt") %>% 
+  as_tbl_time(index = date_time) %>% 
+  collapse_by("weekly") %>%
+  #as_period("10 d") %>% 
+  group_by(date_time,measurements) %>% 
+  summarise(mean_val = values) 
 
 
+ts_seasonal(test_EN, type = "normal")
+data(USgas)
 
-ggplot(EN_long, aes(x=date, y=values, z=factor(measurements), color=measurements)) +
-  geom_line() + 
-  xlab("") +
-  facet_wrap(.~measurements, scales = "free_y")
-  theme(axis.text.x=element_text(angle=60, hjust=1)) +
-  ylim(0,15)
-  
+EN_roll %>%
+  filter(measurements==c("co_gt","t")) %>% 
+  plot_seasonal_diagnostics(date_time, roll_mean, .feature_set = c("week","month.lbl"),
+                            .interactive = T)
+
+  plot_time_series(date_time, roll_mean, .color_var = month(date_time), 
+                   .interactive = T, .color_lab = "Week")
+
+
   
 CTM_Clean =
   CTM %>% 
